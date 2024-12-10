@@ -247,9 +247,43 @@ class Score:
         self.rect = self.image.get_rect()
         self.rect.center = 100, HEIGHT-50
 
-    def update(self, screen: pg.Surface):
+    def update(self, screen):
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         screen.blit(self.image, self.rect)
+
+class EMP(pg.sprite.Sprite):
+    """
+    発動時に存在する敵機と爆弾を無効化するクラス
+    発動条件：「e」キー押下，かつ，スコアが20より大きい
+    消費スコア：20
+    """
+    def __init__(self, enemies: pg.sprite.Group, bombs: pg.sprite.Group, screen: pg.Surface):
+        super().__init__()
+        self.image = pg.Surface((WIDTH, HEIGHT), pg.SRCALPHA)
+        self.image.fill((255, 255, 0, 128))  # 半透明の黄色
+        self.rect = self.image.get_rect()
+
+        self.duration = 3  # 表示時間（フレーム数）
+
+        for enemy in enemies:
+            enemy.interval = float('inf')  # 爆弾を投下できなくする
+            enemy.image = pg.transform.laplacian(enemy.image)  # ラプラシアンフィルタ適用
+
+        for bomb in bombs:
+            bomb.speed /= 2  # 速度を半減
+            bomb.state = "inactive"  # 状態を無効化
+
+        screen.blit(self.image, self.rect)
+        pg.display.update()
+        pg.time.delay(50)
+
+    def update(self):
+        """
+        EMPエフェクトのフレーム制御
+        """
+        self.duration -= 1
+        if self.duration <= 0:
+            self.kill()
 
 class Gravity(pg.sprite.Sprite):
     """
@@ -291,8 +325,8 @@ def main():
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    emps = pg.sprite.Group()
     gravities = pg.sprite.Group()
-
     tmr = 0
     clock = pg.time.Clock()
     while True:
@@ -302,7 +336,11 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
-            if event.type == pg.KEYDOWN and event.key == pg.K_INSERT and score.value >= 200:  # スコア条件とキー押下条件
+
+            if event.type == pg.KEYDOWN and event.key == pg.K_e and score.value >= 20:
+                score.value -= 20
+                emps.add(EMP(emys, bombs, screen))
+            if event.type == pg.KEYDOWN and event.key == pg.K_DELETE and score.value >= 200:  # スコア条件とキー押下条件
                 score.value -= 200  # スコア消費
                 gravities.add(Gravity(400))  # 重力場の生成
             elif event.type == pg.KEYDOWN and event.key == pg.K_q:
@@ -347,6 +385,8 @@ def main():
         bombs.draw(screen)
         exps.update()
         exps.draw(screen)
+        emps.update()
+        emps.draw(screen)
         score.update(screen)
         pg.display.update()
         tmr += 1
