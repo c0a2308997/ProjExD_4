@@ -141,14 +141,14 @@ class Beam(pg.sprite.Sprite):
     """
     ビームに関するクラス
     """
-    def __init__(self, bird: Bird):
+    def __init__(self, bird: Bird, angle0 = 0):
         """
         ビーム画像Surfaceを生成する
         引数 bird：ビームを放つこうかとん
         """
         super().__init__()
         self.vx, self.vy = bird.dire
-        angle = math.degrees(math.atan2(-self.vy, self.vx))
+        angle = math.degrees(math.atan2(-self.vy, self.vx)) + angle0
         self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, 1.0)
         self.vx = math.cos(math.radians(angle))
         self.vy = -math.sin(math.radians(angle))
@@ -156,6 +156,7 @@ class Beam(pg.sprite.Sprite):
         self.rect.centery = bird.rect.centery+bird.rect.height*self.vy
         self.rect.centerx = bird.rect.centerx+bird.rect.width*self.vx
         self.speed = 10
+        self.angle0 = 0
 
     def update(self):
         """
@@ -166,6 +167,15 @@ class Beam(pg.sprite.Sprite):
         if check_bound(self.rect) != (True, True):
             self.kill()
 
+class NeoBeam():
+    def __init__(self, bird, num):
+        self.bird = bird
+        self.num = num -1
+
+    def gen_beams(self):
+        angle = range(-50, +51, int(100/self.num))
+        beams = [Beam(self.bird, an)for an in angle]
+        return beams
 
 class Explosion(pg.sprite.Sprite):
     """
@@ -275,6 +285,34 @@ class EMP(pg.sprite.Sprite):
         if self.duration <= 0:
             self.kill()
 
+class Gravity(pg.sprite.Sprite):
+    """
+    重力場に関するクラス
+    """
+    def __init__(self, life: int):
+        """
+        重力場を生成する
+        引数 life: 重力場の発動時間
+        """
+        super().__init__()
+        self.image = pg.Surface((WIDTH, HEIGHT))  # 半透明の黒い矩形
+        self.image.set_alpha(200)  # 透明度200の黒色
+        self.rect = self.image.get_rect()
+        self.life = life
+
+    def update(self, bombs: pg.sprite.Group, exps: pg.sprite.Group, score: Score):
+        """
+        発動時間を減らし、範囲内の爆弾を削除
+        """
+        self.life -= 1
+        if self.life <= 0:
+            self.kill()
+        else:
+            # 重力場内の爆弾を削除
+            for bomb in bombs:
+                exps.add(Explosion(bomb, 50))
+                bomb.kill()
+                score.value += 1  # 各爆弾でスコアを増加
 
 def main():
     pg.display.set_caption("真！こうかとん無双")
@@ -288,7 +326,7 @@ def main():
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
     emps = pg.sprite.Group()
-
+    gravities = pg.sprite.Group()
     tmr = 0
     clock = pg.time.Clock()
     while True:
@@ -302,6 +340,13 @@ def main():
             if event.type == pg.KEYDOWN and event.key == pg.K_e and score.value >= 20:
                 score.value -= 20
                 emps.add(EMP(emys, bombs, screen))
+            if event.type == pg.KEYDOWN and event.key == pg.K_DELETE and score.value >= 200:  # スコア条件とキー押下条件
+                score.value -= 200  # スコア消費
+                gravities.add(Gravity(400))  # 重力場の生成
+            elif event.type == pg.KEYDOWN and event.key == pg.K_q:
+                num = 10
+                neobeam = NeoBeam(bird, num)
+                beams.add(neobeam.gen_beams())
 
         screen.blit(bg_img, [0, 0])
 
@@ -329,6 +374,8 @@ def main():
             time.sleep(2)
             return
 
+        gravities.update(bombs, exps, score)
+        gravities.draw(screen)
         bird.update(key_lst, screen)
         beams.update()
         beams.draw(screen)
