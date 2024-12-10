@@ -232,14 +232,33 @@ class Score:
     def __init__(self):
         self.font = pg.font.Font(None, 50)
         self.color = (0, 0, 255)
-        self.value = 0
+        self.value = 100
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         self.rect = self.image.get_rect()
         self.rect.center = 100, HEIGHT-50
 
-    def update(self, screen: pg.Surface):
+    def update(self, screen):
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         screen.blit(self.image, self.rect)
+
+class EMP(pg.sprite.Sprite):
+    """
+    発動時に存在する敵機と爆弾を無効化するクラス
+    発動条件：「e」キー押下，かつ，スコアが20より大きい
+    消費スコア：20
+    """
+    def __init__(self, screen):   # , obj: "Bomb|Enemy", screen: pg.Surface
+        super().__init__()
+        self.yellow = pg.Surface((WIDTH, HEIGHT))
+        self.yellow.fill(255, 255, 0)
+        self.yellow.set_alpha(180)
+        self.rect = self.yellow.get_rect()
+        screen.blit(self.yellow, self.rect)
+        pg.display.update()
+        pg.time.delay(50)
+
+    def update(self):
+        pass
 
 
 def main():
@@ -253,6 +272,7 @@ def main():
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    emps = pg.sprite.Group()
 
     tmr = 0
     clock = pg.time.Clock()
@@ -263,6 +283,11 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
+
+            if event.type == pg.KEYDOWN and event.key == pg.K_e and score.value >= 20:
+                emps.add(EMP(screen))
+                #EMP(Bomb|Enemy, screen)
+
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
@@ -289,6 +314,8 @@ def main():
             time.sleep(2)
             return
 
+        emps.update()
+        emps.draw(screen)
         bird.update(key_lst, screen)
         beams.update()
         beams.draw(screen)
