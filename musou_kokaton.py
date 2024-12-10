@@ -232,7 +232,7 @@ class Score:
     def __init__(self):
         self.font = pg.font.Font(None, 50)
         self.color = (0, 0, 255)
-        self.value = 100
+        self.value = 0
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         self.rect = self.image.get_rect()
         self.rect.center = 100, HEIGHT-50
@@ -247,18 +247,33 @@ class EMP(pg.sprite.Sprite):
     発動条件：「e」キー押下，かつ，スコアが20より大きい
     消費スコア：20
     """
-    def __init__(self, screen):   # , obj: "Bomb|Enemy", screen: pg.Surface
+    def __init__(self, enemies: pg.sprite.Group, bombs: pg.sprite.Group, screen: pg.Surface):
         super().__init__()
-        self.yellow = pg.Surface((WIDTH, HEIGHT))
-        self.yellow.fill(255, 255, 0)
-        self.yellow.set_alpha(180)
-        self.rect = self.yellow.get_rect()
-        screen.blit(self.yellow, self.rect)
+        self.image = pg.Surface((WIDTH, HEIGHT), pg.SRCALPHA)
+        self.image.fill((255, 255, 0, 128))  # 半透明の黄色
+        self.rect = self.image.get_rect()
+
+        self.duration = 3  # 表示時間（フレーム数）
+
+        for enemy in enemies:
+            enemy.interval = float('inf')  # 爆弾を投下できなくする
+            enemy.image = pg.transform.laplacian(enemy.image)  # ラプラシアンフィルタ適用
+
+        for bomb in bombs:
+            bomb.speed /= 2  # 速度を半減
+            bomb.state = "inactive"  # 状態を無効化
+
+        screen.blit(self.image, self.rect)
         pg.display.update()
         pg.time.delay(50)
 
     def update(self):
-        pass
+        """
+        EMPエフェクトのフレーム制御
+        """
+        self.duration -= 1
+        if self.duration <= 0:
+            self.kill()
 
 
 def main():
@@ -285,8 +300,8 @@ def main():
                 beams.add(Beam(bird))
 
             if event.type == pg.KEYDOWN and event.key == pg.K_e and score.value >= 20:
-                emps.add(EMP(screen))
-                #EMP(Bomb|Enemy, screen)
+                score.value -= 20
+                emps.add(EMP(emys, bombs, screen))
 
         screen.blit(bg_img, [0, 0])
 
@@ -314,8 +329,6 @@ def main():
             time.sleep(2)
             return
 
-        emps.update()
-        emps.draw(screen)
         bird.update(key_lst, screen)
         beams.update()
         beams.draw(screen)
@@ -325,6 +338,8 @@ def main():
         bombs.draw(screen)
         exps.update()
         exps.draw(screen)
+        emps.update()
+        emps.draw(screen)
         score.update(screen)
         pg.display.update()
         tmr += 1
