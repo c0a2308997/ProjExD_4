@@ -72,6 +72,8 @@ class Bird(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = xy
         self.speed = 10
+        self.state = "normal"
+        self.hyper_life = 500
 
     def change_img(self, num: int, screen: pg.Surface):
         """
@@ -88,6 +90,8 @@ class Bird(pg.sprite.Sprite):
         引数1 key_lst：押下キーの真理値リスト
         引数2 screen：画面Surface
         """
+
+        
         sum_mv = [0, 0]
         for k, mv in __class__.delta.items():
             if key_lst[k]:
@@ -99,8 +103,15 @@ class Bird(pg.sprite.Sprite):
         if not (sum_mv[0] == 0 and sum_mv[1] == 0):
             self.dire = tuple(sum_mv)
             self.image = self.imgs[self.dire]
+        if self.state == "hyper":
+            self.image = pg.transform.laplacian(self.image)
+            self.hyper_life -= 1
+        if self.hyper_life < 0:
+            self.state = "normal"
+        
         screen.blit(self.image, self.rect)
 
+        
 
 class Bomb(pg.sprite.Sprite):
     """
@@ -337,10 +348,18 @@ def main():
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
 
+            if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT and score.value >= 100:
+                bird.state = "hyper"
+                score.value -= 100
+            
+            if event.type == pg.KEYDOWN and event.key == pg.K_INSERT and score.value >= 200:  # スコア条件とキー押下条件
+
+
             if event.type == pg.KEYDOWN and event.key == pg.K_e and score.value >= 20:
                 score.value -= 20
                 emps.add(EMP(emys, bombs, screen))
             if event.type == pg.KEYDOWN and event.key == pg.K_DELETE and score.value >= 200:  # スコア条件とキー押下条件
+
                 score.value -= 200  # スコア消費
                 gravities.add(Gravity(400))  # 重力場の生成
             elif event.type == pg.KEYDOWN and event.key == pg.K_q:
@@ -349,6 +368,12 @@ def main():
                 beams.add(neobeam.gen_beams())
 
         screen.blit(bg_img, [0, 0])
+
+            
+                
+                
+
+
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
             emys.add(Enemy())
@@ -368,11 +393,16 @@ def main():
             score.value += 1  # 1点アップ
 
         for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
-            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-            score.update(screen)
-            pg.display.update()
-            time.sleep(2)
-            return
+            if bird.state == "normal":
+                bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+                score.update(screen)
+                pg.display.update()
+                time.sleep(2)
+                return
+            elif bird.state == "hyper":
+                exps.add(Explosion(bird, 100))  # 爆発エフェクト
+                score.value += 1  # 10点アップ
+                continue
 
         gravities.update(bombs, exps, score)
         gravities.draw(screen)
