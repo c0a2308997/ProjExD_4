@@ -241,6 +241,34 @@ class Score:
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         screen.blit(self.image, self.rect)
 
+class Gravity(pg.sprite.Sprite):
+    """
+    重力場に関するクラス
+    """
+    def __init__(self, life: int):
+        """
+        重力場を生成する
+        引数 life: 重力場の発動時間
+        """
+        super().__init__()
+        self.image = pg.Surface((WIDTH, HEIGHT))  # 半透明の黒い矩形
+        self.image.set_alpha(200)  # 透明度200の黒色
+        self.rect = self.image.get_rect()
+        self.life = life
+
+    def update(self, bombs: pg.sprite.Group, exps: pg.sprite.Group, score: Score):
+        """
+        発動時間を減らし、範囲内の爆弾を削除
+        """
+        self.life -= 1
+        if self.life <= 0:
+            self.kill()
+        else:
+            # 重力場内の爆弾を削除
+            for bomb in bombs:
+                exps.add(Explosion(bomb, 50))
+                bomb.kill()
+                score.value += 1  # 各爆弾でスコアを増加
 
 def main():
     pg.display.set_caption("真！こうかとん無双")
@@ -253,6 +281,7 @@ def main():
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    gravities = pg.sprite.Group()
 
     tmr = 0
     clock = pg.time.Clock()
@@ -263,6 +292,9 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
+            if event.type == pg.KEYDOWN and event.key == pg.K_INSERT and score.value >= 200:  # スコア条件とキー押下条件
+                score.value -= 200  # スコア消費
+                gravities.add(Gravity(400))  # 重力場の生成
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
@@ -289,6 +321,8 @@ def main():
             time.sleep(2)
             return
 
+        gravities.update(bombs, exps, score)
+        gravities.draw(screen)
         bird.update(key_lst, screen)
         beams.update()
         beams.draw(screen)
